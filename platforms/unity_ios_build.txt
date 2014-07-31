@@ -1,0 +1,34 @@
+iOS tracking README
+=================
+
+The iOS tracking uses the OpenCV library which is compiled as a framework. The framework
+can be compiled with either libc++ or libstdc++ standard library.
+
+The StaticLib uses the libstdc++ version by default because Unity iOS projects are
+compiled with libstdc++ so the library must use the same standard library.
+
+
+Compiling the OpenCV framework
+==============================
+
+The opencv source distribution contains a python script in the platforms/ios/build_framework.py location which compiles the framework. The ios folder here contains the modified files needed for compiling the framework. just replace the [opencv_src]/platforms/ios folded with this on and run “python build_framework.py <output_folder>”
+
+
+Changes made to the compilation process
+=======================================
+
+Unity3d has a different version of the libpng library from opencv, so the opencv framework must be compiled without libpng when using it with unity.
+To disable libpng, edit build_framework.py:
+line 39:
+Add "-DWITH_PNG=OFF" to cmakeargs
+
+Unity uses libstdc++ standard library and is not compatible with libc++
+To choose which standard library to use, edit the file:
+ios/cmake/Modules/Platform/iOS.cmake
+
+line 43:
+set (CMAKE_CXX_FLAGS "-stdlib=libc++ -headerpad_max_install_names -fvisibility=hidden -fvisibility-inlines-hidden")
+
+possible values for stdlib:
+ -stdlib=libc++
+ -stdlib=libstdc++
