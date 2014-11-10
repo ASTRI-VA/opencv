@@ -40,7 +40,8 @@ def build_opencv(srcroot, buildroot, target, arch):
                 "-DCMAKE_BUILD_TYPE=Release " +
                 "-DCMAKE_TOOLCHAIN_FILE=%s/platforms/ios/cmake/Toolchains/Toolchain-%s_Xcode.cmake " +
                 "-DBUILD_opencv_world=ON " +
-                "-DWITH_PNG=OFF " +
+                 "-DWITH_PNG=OFF " +
+                 "-DWITH_JPEG=OFF " +
                 "-DCMAKE_C_FLAGS=\"-Wno-implicit-function-declaration\" " +
                 "-DCMAKE_INSTALL_PREFIX=install") % (srcroot, target)
     # if cmake cache exists, just rerun cmake to update OpenCV.xproj if necessary
