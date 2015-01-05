@@ -27,7 +27,7 @@ However, opencv2.framework directory is erased and recreated on each run.
 
 import glob, re, os, os.path, shutil, string, sys
 
-def build_opencv(srcroot, buildroot, target, arch):
+def build_opencv(srcroot, buildroot, target, arch, unityBuild):
     "builds OpenCV for device or simulator"
 
     builddir = os.path.join(buildroot, target + '-' + arch)
@@ -40,10 +40,12 @@ def build_opencv(srcroot, buildroot, target, arch):
                 "-DCMAKE_BUILD_TYPE=Release " +
                 "-DCMAKE_TOOLCHAIN_FILE=%s/platforms/ios/cmake/Toolchains/Toolchain-%s_Xcode.cmake " +
                 "-DBUILD_opencv_world=ON " +
-                 "-DWITH_PNG=OFF " +
-                 "-DWITH_JPEG=OFF " +
                 "-DCMAKE_C_FLAGS=\"-Wno-implicit-function-declaration\" " +
                 "-DCMAKE_INSTALL_PREFIX=install") % (srcroot, target)
+
+    if unityBuild :
+        cmakeargs += " -DWITH_PNG=OFF " + "-DWITH_JPEG=OFF " + "-DUSE_LIBSTDC=ON"
+
     # if cmake cache exists, just rerun cmake to update OpenCV.xproj if necessary
     if os.path.isfile(os.path.join(builddir, "CMakeCache.txt")):
         os.system("cmake %s ." % (cmakeargs,))
@@ -96,21 +98,27 @@ def put_framework_together(srcroot, dstroot):
     os.symlink("Versions/Current/opencv2", "opencv2")
 
 
-def build_framework(srcroot, dstroot):
+def build_framework(srcroot, dstroot, unityBuild):
     "main function to do all the work"
     # removed targets: "iPhoneSimulator", "iPhoneSimulator"
     # removed archs: "i386", "x86_64"
     targets = ["iPhoneOS", "iPhoneOS", "iPhoneOS"]
     archs = ["armv7", "armv7s", "arm64"]
     for i in range(len(targets)):
-        build_opencv(srcroot, os.path.join(dstroot, "build"), targets[i], archs[i])
+        build_opencv(srcroot, os.path.join(dstroot, "build"), targets[i], archs[i], unityBuild)
 
     put_framework_together(srcroot, dstroot)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print "Usage:\n\t./build_framework.py <outputdir>\n\n"
+    if len(sys.argv) < 2:
+        print "Usage:\n\t./build_framework.py <outputdir> <-unity>\n\n"
         sys.exit(0)
+    
+    srcroot = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), "../.."))
+    outputdir = os.path.abspath(sys.argv[1])
+    unityBuild = False;
+    if len(sys.argv) > 2 :
+        unityBuild = sys.argv[2] == '-unity';
 
-    build_framework(os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), "../..")), os.path.abspath(sys.argv[1]))
+    build_framework(srcroot, outputdir, unityBuild)
