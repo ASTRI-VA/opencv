@@ -217,10 +217,10 @@ bool CvHomographyEstimator::refine( const CvMat* m1, const CvMat* m2, CvMat* mod
 CV_IMPL int
 cvFindHomography( const CvMat* objectPoints, const CvMat* imagePoints,
                   CvMat* __H, int method, double ransacReprojThreshold,
-                  CvMat* mask )
+                  CvMat* mask, int maxIterations )
 {
     const double confidence = 0.995;
-    const int maxIters = 2000;
+    const int maxIters = maxIterations; // default 2000;
     const double defaultRANSACReprojThreshold = 3;
     bool result = false;
     Ptr<CvMat> m, M, tempMask;
