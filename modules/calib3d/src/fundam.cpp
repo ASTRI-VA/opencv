@@ -1066,7 +1066,8 @@ CV_IMPL void cvConvertPointsHomogeneous( const CvMat* src, CvMat* dst )
 }
 
 cv::Mat cv::findHomography( InputArray _points1, InputArray _points2,
-                            int method, double ransacReprojThreshold, OutputArray _mask )
+                            int method, double ransacReprojThreshold, OutputArray _mask,
+                            int maxIterations)
 {
     Mat points1 = _points1.getMat(), points2 = _points2.getMat();
     int npoints = points1.checkVector(2);
@@ -1081,7 +1082,8 @@ cv::Mat cv::findHomography( InputArray _points1, InputArray _points2,
         _mask.create(npoints, 1, CV_8U, -1, true);
         p_mask = &(c_mask = _mask.getMat());
     }
-    bool ok = cvFindHomography( &_pt1, &_pt2, &matH, method, ransacReprojThreshold, p_mask ) > 0;
+    bool ok = cvFindHomography( &_pt1, &_pt2, &matH, method,
+                               ransacReprojThreshold, p_mask, maxIterations ) > 0;
     if( !ok )
         H = Scalar(0);
     return H;
