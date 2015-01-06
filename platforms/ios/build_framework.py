@@ -44,8 +44,10 @@ def build_opencv(srcroot, buildroot, target, arch, unityBuild):
                 "-DCMAKE_INSTALL_PREFIX=install") % (srcroot, target)
 
     if unityBuild :
-        cmakeargs += " -DWITH_PNG=OFF " + "-DWITH_JPEG=OFF " + "-DUSE_LIBSTDC=ON"
-
+        cmakeargs += " -DWITH_PNG=OFF -DWITH_JPEG=OFF -DUSE_LIBSTDC=ON"
+    else:
+        cmakeargs += " -DWITH_PNG=ON -DWITH_JPEG=OFF"
+    
     # if cmake cache exists, just rerun cmake to update OpenCV.xproj if necessary
     if os.path.isfile(os.path.join(builddir, "CMakeCache.txt")):
         os.system("cmake %s ." % (cmakeargs,))
