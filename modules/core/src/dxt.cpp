@@ -461,6 +461,172 @@ template<> struct DFT_VecR4<float>
 };
 
 #endif
+    
+#if CV_NEON
+// optimized radix-4 transform for NEON
+template<> struct DFT_VecR4<float>
+{
+    int operator()(Complex<float>* dst, int N, int n0, int& _dw0, const Complex<float>* wave) const
+    {
+        // LOGD("USE_NEON DFT_VecR4");
+        
+        int n = 1, i, j, nx, dw, dw0 = _dw0;
+        float32x4_t z = vdupq_n_f32(0);
+        float32x4_t x02=z;
+        float32x4_t x13=z;
+        float32x4_t w01=z;
+        float32x4_t w23=z;
+        float32x4_t y01;
+        float32x4_t y23;
+        float32x4_t t0;
+        float32x4_t t1;
+        
+        float32x2_t low, high;
+        
+        Cv32suf t; t.i = 0x80000000;
+        
+        float32x4_t neg0_mask = vsetq_lane_f32(float32_t(t.f), vdupq_n_f32(0), 0);
+        
+        float32x4_t neg3_mask;
+        
+        float32x4_t vtmp, vtmp2;
+        //hi
+        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 0), neg3_mask, 3);
+        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 1), neg3_mask, 2);
+        //lo
+        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 2), neg3_mask, 1);
+        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 3), neg3_mask, 0);
+        
+        for( ; n*4 <= N; )
+        {
+            nx = n;
+            n *= 4;
+            dw0 /= 4;
+            
+            for( i = 0; i < n0; i += n )
+            {
+                cv::Complexf *v0, *v1;
+                
+                v0 = dst + i;
+                v1 = v0 + nx*2;
+                
+                x02 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[0])), vget_high_f32(x02));
+                x13 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[nx])), vget_high_f32(x13));
+                x02 = vcombine_f32(vget_low_f32(x02), (float32x2_t)vld1_u64((const uint64_t *)(&v1[0])));
+                x13 = vcombine_f32(vget_low_f32(x13), (float32x2_t)vld1_u64((const uint64_t *)(&v1[nx])));
+                
+                y01 = vaddq_f32(x02, x13);
+                y23 = vsubq_f32(x02, x13);
+                
+                //hi
+                vtmp = vsetq_lane_f32(vgetq_lane_f32(y23, 2), vtmp, 3);
+                vtmp = vsetq_lane_f32(vgetq_lane_f32(y23, 3), vtmp, 2);
+                //lo
+                vtmp = vsetq_lane_f32(vgetq_lane_f32(y01, 3), vtmp, 1);
+                vtmp = vsetq_lane_f32(vgetq_lane_f32(y01, 2), vtmp, 0);
+                t1 = (float32x4_t)veorq_u32((uint32x4_t)vtmp, (uint32x4_t)neg3_mask);
+                
+                t0 = vcombine_f32(vget_low_f32(y01), vget_low_f32(y23));
+                
+                y01 = vaddq_f32(t0, t1);
+                y23 = vsubq_f32(t0, t1);
+                
+                vst1_u64((uint64_t *)&v0[0], (uint64x1_t)vget_low_f32(y01));
+                vst1_u64((uint64_t *)&v0[nx], (uint64x1_t)vget_high_f32(y01));
+                vst1_u64((uint64_t *)&v1[0], (uint64x1_t)vget_low_f32(y23));
+                vst1_u64((uint64_t *)&v1[nx], (uint64x1_t)vget_high_f32(y23));
+                
+                // printf("i=%d loop v0[0].re=%f im=%f, v0[nx].re=%f im=%f, v1[0].re=%f im=%f, v1[nx].re=%f im=%f nx=%d\n", i, v0[0].re, v0[0].im, v0[nx].re, v0[nx].im, v1[0].re, v1[0].im, v1[nx].re, v1[nx].im, nx);
+                
+                for( j = 1, dw = dw0; j < nx; j++, dw += dw0 )
+                {
+                    v0 = dst + i + j;
+                    v1 = v0 + nx*2;
+                    
+                    x13 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[nx])), vget_high_f32(x13));
+                    w23 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&wave[dw*2])), vget_high_f32(w23));
+                    x13 = vcombine_f32(vget_low_f32(x13), (float32x2_t)vld1_u64((const uint64_t *)(&v1[nx])));
+                    w23 = vcombine_f32(vget_low_f32(w23), (float32x2_t)vld1_u64((const uint64_t *)(&wave[dw*3])));
+                    
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 2), vtmp, 3);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 2), vtmp, 2);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 0), vtmp, 1);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 0), vtmp, 0);
+                    t0 = vmulq_f32(vtmp, w23);
+                    
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 3), vtmp, 3);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 3), vtmp, 2);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 1), vtmp, 1);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 1), vtmp, 0);
+                    
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w23, 2), vtmp2, 3);
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w23, 3), vtmp2, 2);
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w23, 0), vtmp2, 1);
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w23, 1), vtmp2, 0);
+                    
+                    t1 = vmulq_f32(vtmp, vtmp2);
+                    
+                    x13 = vsetq_lane_f32(vgetq_lane_f32(t0, 0) - vgetq_lane_f32(t1, 0), x13, 0);
+                    x13 = vsetq_lane_f32(vgetq_lane_f32(t0, 1) + vgetq_lane_f32(t1, 1), x13, 1);
+                    x13 = vsetq_lane_f32(vgetq_lane_f32(t0, 2) - vgetq_lane_f32(t1, 2), x13, 2);
+                    x13 = vsetq_lane_f32(vgetq_lane_f32(t0, 3) + vgetq_lane_f32(t1, 3), x13, 3);
+                    
+                    x02 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v1[0])), vget_high_f32(x02));
+                    
+                    w01 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&wave[dw])), vget_high_f32(w01));
+                    
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x02, 0), vtmp, 3);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x02, 0), vtmp, 2);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x02, 1), vtmp, 1);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(x02, 1), vtmp, 0);
+                    
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w01, 1), vtmp2, 3);
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w01, 0), vtmp2, 2);
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w01, 0), vtmp2, 1);
+                    vtmp2 = vsetq_lane_f32(vgetq_lane_f32(w01, 1), vtmp2, 0);
+                    
+                    x02 = vmulq_f32(vtmp, vtmp2);
+                    
+                    vtmp = vcombine_f32(vget_low_f32(x02), vget_low_f32(x02));
+                    x02 = vsetq_lane_f32(vgetq_lane_f32(x02, 3) + vgetq_lane_f32(vtmp, 3), x02, 3);
+                    x02 = vsetq_lane_f32(vgetq_lane_f32(x02, 2) - vgetq_lane_f32(vtmp, 2), x02, 2);
+                    x02 = vsetq_lane_f32(vgetq_lane_f32(x02, 1) + vgetq_lane_f32(vtmp, 1), x02, 1);
+                    x02 = vsetq_lane_f32(vgetq_lane_f32(x02, 0) - vgetq_lane_f32(vtmp, 0), x02, 0);
+                    
+                    x02 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[0])), vget_high_f32(x02));
+                    
+                    y01 = vaddq_f32(x02, x13);
+                    y23 = vsubq_f32(x02, x13);
+                    
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(y23, 2), vtmp, 3);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(y23, 3), vtmp, 2);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(y01, 3), vtmp, 1);
+                    vtmp = vsetq_lane_f32(vgetq_lane_f32(y01, 2), vtmp, 0);
+                    t1 = (float32x4_t)veorq_u32((uint32x4_t)vtmp, (uint32x4_t)neg3_mask);
+                    
+                    t0 = vcombine_f32(vget_low_f32(y01), vget_low_f32(y23));
+                    
+                    y01 = vaddq_f32(t0, t1);
+                    y23 = vsubq_f32(t0, t1);
+                    
+                    vst1_u64((uint64_t *)&v0[0], (uint64x1_t)vget_low_f32(y01));
+                    vst1_u64((uint64_t *)&v0[nx], (uint64x1_t)vget_high_f32(y01));
+                    vst1_u64((uint64_t *)&v1[0], (uint64x1_t)vget_low_f32(y23));
+                    vst1_u64((uint64_t *)&v1[nx], (uint64x1_t)vget_high_f32(y23));
+                    
+                    // printf("j=%d i=%d, loop v0[0].re=%f im=%f, v0[nx].re=%f im=%f, v1[0].re=%f im=%f, v1[nx].re=%f im=%f nx=%d\n", j, i, v0[0].re, v0[0].im, v0[nx].re, v0[nx].im, v1[0].re, v1[0].im, v1[nx].re, v1[nx].im, nx);
+                    
+                }
+            }
+        }
+        
+        _dw0 = dw0;
+        return n;
+
+    }
+};
+    
+#endif
 
 #ifdef USE_IPP_DFT
 static void ippsDFTFwd_CToC( const Complex<float>* src, Complex<float>* dst,
@@ -649,7 +815,8 @@ DFT( const Complex<T>* src, Complex<T>* dst, int n,
     // 1. power-2 transforms
     if( (factors[0] & 1) == 0 )
     {
-        if( factors[0] >= 4 && checkHardwareSupport(CV_CPU_SSE3))
+        if( factors[0] >= 4 &&
+           (checkHardwareSupport(CV_CPU_SSE3) || CV_NEON))
         {
             DFT_VecR4<T> vr4;
             n = vr4(dst, factors[0], n0, dw0, wave);
@@ -1629,6 +1796,11 @@ void cv::dft( InputArray _src0, OutputArray _dst, int flags, int nonzero_rows )
         if( !spec )
         {
             wave = ptr;
+#ifdef ALIGN_WAVE
+            // need to align wave buffer for NEON on Android, however on iOS
+            // this will cause a crash for some reason..
+            wave = (uchar*)alignPtr( wave, 16 );
+#endif
             ptr += len*complex_elem_size;
             itab = (int*)ptr;
             ptr = (uchar*)cvAlignPtr( ptr + len*sizeof(int), 16 );
