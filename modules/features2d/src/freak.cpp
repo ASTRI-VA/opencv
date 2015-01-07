@@ -300,6 +300,8 @@ void FREAK::computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat
         descriptors = cv::Mat::zeros((int)keypoints.size(), FREAK_NB_PAIRS/8, CV_8U);
 #if CV_SSE2
         __m128i* ptr= (__m128i*) (descriptors.data+(keypoints.size()-1)*descriptors.step[0]);
+#elif CV_NEON
+        uint8x16_t* ptr= (uint8x16_t*) (descriptors.data+(keypoints.size()-1)*descriptors.step[0]);
 #else
         std::bitset<FREAK_NB_PAIRS>* ptr = (std::bitset<FREAK_NB_PAIRS>*) (descriptors.data+(keypoints.size()-1)*descriptors.step[0]);
 #endif
@@ -395,6 +397,66 @@ void FREAK::computeImpl( const Mat& image, std::vector<KeyPoint>& keypoints, Mat
                 ++ptr;
             }
             ptr -= (FREAK_NB_PAIRS/128)*2;
+            
+#elif CV_NEON
+
+            int cnt = 0;
+            for( int n = FREAK_NB_PAIRS/128; n-- ; )
+            {
+                uint8x16_t result128 = vdupq_n_u8(0);
+                for( int m = 128/16; m--; cnt += 16 )
+                {
+                    uint8x16_t operand1 = {
+                        pointsValue[descriptionPairs[cnt+0].i],
+                        pointsValue[descriptionPairs[cnt+1].i],
+                        pointsValue[descriptionPairs[cnt+2].i],
+                        pointsValue[descriptionPairs[cnt+3].i],
+                        pointsValue[descriptionPairs[cnt+4].i],
+                        pointsValue[descriptionPairs[cnt+5].i],
+                        pointsValue[descriptionPairs[cnt+6].i],
+                        pointsValue[descriptionPairs[cnt+7].i],
+                        pointsValue[descriptionPairs[cnt+8].i],
+                        pointsValue[descriptionPairs[cnt+9].i],
+                        pointsValue[descriptionPairs[cnt+10].i],
+                        pointsValue[descriptionPairs[cnt+11].i],
+                        pointsValue[descriptionPairs[cnt+12].i],
+                        pointsValue[descriptionPairs[cnt+13].i],
+                        pointsValue[descriptionPairs[cnt+14].i],
+                        pointsValue[descriptionPairs[cnt+15].i]};
+
+                    uint8x16_t operand2 = {
+                        pointsValue[descriptionPairs[cnt+0].j],
+                        pointsValue[descriptionPairs[cnt+1].j],
+                        pointsValue[descriptionPairs[cnt+2].j],
+                        pointsValue[descriptionPairs[cnt+3].j],
+                        pointsValue[descriptionPairs[cnt+4].j],
+                        pointsValue[descriptionPairs[cnt+5].j],
+                        pointsValue[descriptionPairs[cnt+6].j],
+                        pointsValue[descriptionPairs[cnt+7].j],
+                        pointsValue[descriptionPairs[cnt+8].j],
+                        pointsValue[descriptionPairs[cnt+9].j],
+                        pointsValue[descriptionPairs[cnt+10].j],
+                        pointsValue[descriptionPairs[cnt+11].j],
+                        pointsValue[descriptionPairs[cnt+12].j],
+                        pointsValue[descriptionPairs[cnt+13].j],
+                        pointsValue[descriptionPairs[cnt+14].j],
+                        pointsValue[descriptionPairs[cnt+15].j]};
+
+
+                    // emulated "not less than" for 8-bit UNSIGNED integers
+                    uint8x16_t  workReg = vminq_u8((uint8x16_t)operand1, (uint8x16_t)operand2);
+                    // emulated "not less than" for 8-bit UNSIGNED integers
+                    workReg = vceqq_u8(workReg, (uint8x16_t)operand2);
+                    // merge the last 16 bits with the 128bits std::vector until full
+                    workReg = vandq_u8(vdupq_n_u8(short(0x8080 >> m)), (uint8x16_t)workReg);
+
+                    result128 =  vorrq_u8((uint8x16_t)result128, workReg);
+                }
+                (*ptr) = result128;
+                ++ptr;
+            }
+            ptr -= 8;
+            
 #else
             // extracting descriptor preserving the order of SSE version
             int cnt = 0;
