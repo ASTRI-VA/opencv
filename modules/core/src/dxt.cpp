@@ -1796,11 +1796,7 @@ void cv::dft( InputArray _src0, OutputArray _dst, int flags, int nonzero_rows )
         if( !spec )
         {
             wave = ptr;
-#ifdef ALIGN_WAVE
-            // need to align wave buffer for NEON on Android, however on iOS
-            // this will cause a crash for some reason..
-            wave = (uchar*)alignPtr( wave, 16 );
-#endif
+
             ptr += len*complex_elem_size;
             itab = (int*)ptr;
             ptr = (uchar*)cvAlignPtr( ptr + len*sizeof(int), 16 );
