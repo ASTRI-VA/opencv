@@ -7,10 +7,10 @@ echo "Please set it to point to your NDK location"
 exit
 fi
 
-cd platforms
-./scripts/cmake_android_arm.sh
-cd build_android_arm
+cd ..
+mkdir -p build/android_arm
+cd build/android_arm
+
+cmake -C ../../ASTRI/BuildCacheAndroid.cmake ./../..
 make -j12
-mkdir install
-cmake install . -DCMAKE_INSTALL_PREFIX=./install
 make install

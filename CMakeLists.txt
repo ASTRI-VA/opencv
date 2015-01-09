@@ -414,6 +414,13 @@ include(cmake/OpenCVCompilerOptions.cmake)
 
 
 # ----------------------------------------------------------------------------
+# ASTRI OpenCV extensions
+# ----------------------------------------------------------------------------
+# Load ASTRI specific OpenCV settings
+
+include(ASTRI/OpenCVASTRIExtensions.cmake)
+
+# ----------------------------------------------------------------------------
 # Use statically or dynamically linked CRT?
 # Default: dynamic
 # ----------------------------------------------------------------------------

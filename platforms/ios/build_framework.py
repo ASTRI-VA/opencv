@@ -27,7 +27,7 @@ However, opencv2.framework directory is erased and recreated on each run.
 
 import glob, re, os, os.path, shutil, string, sys
 
-def build_opencv(srcroot, buildroot, target, arch, unityBuild):
+def build_opencv(srcroot, buildroot, target, arch, cachefile):
     "builds OpenCV for device or simulator"
 
     builddir = os.path.join(buildroot, target + '-' + arch)
@@ -37,16 +37,7 @@ def build_opencv(srcroot, buildroot, target, arch, unityBuild):
     os.chdir(builddir)
     # for some reason, if you do not specify CMAKE_BUILD_TYPE, it puts libs to "RELEASE" rather than "Release"
     cmakeargs = ("-GXcode " +
-                "-DCMAKE_BUILD_TYPE=Release " +
-                "-DCMAKE_TOOLCHAIN_FILE=%s/platforms/ios/cmake/Toolchains/Toolchain-%s_Xcode.cmake " +
-                "-DBUILD_opencv_world=ON " +
-                "-DCMAKE_C_FLAGS=\"-Wno-implicit-function-declaration\" " +
-                "-DCMAKE_INSTALL_PREFIX=install") % (srcroot, target)
-
-    if unityBuild :
-        cmakeargs += " -DWITH_PNG=OFF -DWITH_JPEG=OFF -DUSE_LIBSTDC=ON"
-    else:
-        cmakeargs += " -DWITH_PNG=ON -DWITH_JPEG=OFF"
+                 "-C %s") % (cachefile)
     
     # if cmake cache exists, just rerun cmake to update OpenCV.xproj if necessary
     if os.path.isfile(os.path.join(builddir, "CMakeCache.txt")):
@@ -100,27 +91,25 @@ def put_framework_together(srcroot, dstroot):
     os.symlink("Versions/Current/opencv2", "opencv2")
 
 
-def build_framework(srcroot, dstroot, unityBuild):
+def build_framework(srcroot, dstroot, cachefile):
     "main function to do all the work"
     # removed targets: "iPhoneSimulator", "iPhoneSimulator"
     # removed archs: "i386", "x86_64"
     targets = ["iPhoneOS", "iPhoneOS", "iPhoneOS"]
     archs = ["armv7", "armv7s", "arm64"]
     for i in range(len(targets)):
-        build_opencv(srcroot, os.path.join(dstroot, "build"), targets[i], archs[i], unityBuild)
+        build_opencv(srcroot, os.path.join(dstroot, "build"), targets[i], archs[i], cachefile)
 
     put_framework_together(srcroot, dstroot)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print "Usage:\n\t./build_framework.py <outputdir> <-unity>\n\n"
+    if len(sys.argv) < 3:
+        print "Usage:\n\t./build_framework.py <outputdir> <cachefile>\n\n"
         sys.exit(0)
     
     srcroot = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), "../.."))
     outputdir = os.path.abspath(sys.argv[1])
-    unityBuild = False;
-    if len(sys.argv) > 2 :
-        unityBuild = sys.argv[2] == '-unity';
+    cachefile = os.path.abspath(sys.argv[2]);
 
-    build_framework(srcroot, outputdir, unityBuild)
+    build_framework(srcroot, outputdir, cachefile)

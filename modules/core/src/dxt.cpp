@@ -462,7 +462,8 @@ template<> struct DFT_VecR4<float>
 
 #endif
     
-#if CV_NEON
+#ifdef USE_ASTRI_NEON_DFT
+
 // optimized radix-4 transform for NEON
 template<> struct DFT_VecR4<float>
 {
@@ -815,8 +816,13 @@ DFT( const Complex<T>* src, Complex<T>* dst, int n,
     // 1. power-2 transforms
     if( (factors[0] & 1) == 0 )
     {
+#ifdef USE_ASTRI_NEON_DFT
+        const bool useAstriNeonDft = true;
+#else
+        const bool useAstriNeonDft = false;
+#endif
         if( factors[0] >= 4 &&
-           (checkHardwareSupport(CV_CPU_SSE3) || CV_NEON))
+           (checkHardwareSupport(CV_CPU_SSE3) || useAstriNeonDft))
         {
             DFT_VecR4<T> vr4;
             n = vr4(dst, factors[0], n0, dw0, wave);
