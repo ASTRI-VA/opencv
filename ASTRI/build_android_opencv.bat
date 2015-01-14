@@ -8,6 +8,11 @@ IF "%ANDROID_NDK%" == "" (
 	echo Found ANDROID_NDK
 )
 
+WHERE ant
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO ant is required and was not found!
+    exit/b
+)
 
 cd ..
 mkdir build\android_arm
