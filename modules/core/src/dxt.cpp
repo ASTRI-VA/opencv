@@ -482,7 +482,7 @@ template<> struct DFT_VecR4<float>
         float32x4_t t0;
         float32x4_t t1;
 
-        //float32x2_t low, high;
+        float32x2_t low, high;
 
         //Cv32suf t;
         //t.i = 0x80000000;
@@ -546,10 +546,18 @@ template<> struct DFT_VecR4<float>
                     v0 = dst + i + j;
                     v1 = v0 + nx*2;
                     
-                    x13 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[nx])), vget_high_f32(x13));
-                    w23 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&wave[dw*2])), vget_high_f32(w23));
-                    x13 = vcombine_f32(vget_low_f32(x13), (float32x2_t)vld1_u64((const uint64_t *)(&v1[nx])));
-                    w23 = vcombine_f32(vget_low_f32(w23), (float32x2_t)vld1_u64((const uint64_t *)(&wave[dw*3])));
+                    //x13 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[nx])), vget_high_f32(x13));
+					low = vld1_f32((const float32_t *)(&v0[nx]));
+					high = vld1_f32((const float32_t *)(&v1[nx]));
+					x13 = vcombine_f32(low, high);
+					
+					low = vld1_f32((const float32_t*)&wave[dw*2]);
+					high = vld1_f32((const float32_t*)&wave[dw*3]);
+					w23 = vcombine_f32(low, high);					
+					
+                    //w23 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&wave[dw*2])), vget_high_f32(w23));
+                    //x13 = vcombine_f32(vget_low_f32(x13), (float32x2_t)vld1_u64((const uint64_t *)(&v1[nx])));
+                    //w23 = vcombine_f32(vget_low_f32(w23), (float32x2_t)vld1_u64((const uint64_t *)(&wave[dw*3])));
                     
                     vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 2), vtmp, 3);
                     vtmp = vsetq_lane_f32(vgetq_lane_f32(x13, 2), vtmp, 2);
@@ -574,9 +582,15 @@ template<> struct DFT_VecR4<float>
                     x13 = vsetq_lane_f32(vgetq_lane_f32(t0, 2) - vgetq_lane_f32(t1, 2), x13, 2);
                     x13 = vsetq_lane_f32(vgetq_lane_f32(t0, 3) + vgetq_lane_f32(t1, 3), x13, 3);
                     
-                    x02 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v1[0])), vget_high_f32(x02));
-                    
-                    w01 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&wave[dw])), vget_high_f32(w01));
+                    high = vget_high_f32(x02);
+					low = vld1_f32((const float32_t*)&v1[0]);
+					x02 = vcombine_f32(low, high);
+					//x02 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v1[0])), vget_high_f32(x02));
+                  
+					high = vget_high_f32(w01);
+					low = vld1_f32((const float32_t*)&wave[dw]);
+					w01 = vcombine_f32(low, high);
+                    //w01 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&wave[dw])), vget_high_f32(w01));
                     
                     vtmp = vsetq_lane_f32(vgetq_lane_f32(x02, 0), vtmp, 3);
                     vtmp = vsetq_lane_f32(vgetq_lane_f32(x02, 0), vtmp, 2);
