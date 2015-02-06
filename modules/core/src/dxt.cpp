@@ -481,22 +481,24 @@ template<> struct DFT_VecR4<float>
         float32x4_t y23;
         float32x4_t t0;
         float32x4_t t1;
+
+        //float32x2_t low, high;
+
+        //Cv32suf t;
+        //t.i = 0x80000000;
+
+        //float32x4_t neg0_mask = vsetq_lane_f32(float32_t(t.f), vdupq_n_f32(0), 0);
         
-        float32x2_t low, high;
-        
-        Cv32suf t; t.i = 0x80000000;
-        
-        float32x4_t neg0_mask = vsetq_lane_f32(float32_t(t.f), vdupq_n_f32(0), 0);
-        
-        float32x4_t neg3_mask;
+        uint32x4_t neg3_mask;
         
         float32x4_t vtmp, vtmp2;
         //hi
-        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 0), neg3_mask, 3);
-        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 1), neg3_mask, 2);
+        //neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 0), neg3_mask, 3);
+        //neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 1), neg3_mask, 2);
         //lo
-        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 2), neg3_mask, 1);
-        neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 3), neg3_mask, 0);
+        //neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 2), neg3_mask, 1);
+        //neg3_mask = vsetq_lane_f32(vgetq_lane_f32(neg0_mask, 3), neg3_mask, 0);
+        neg3_mask = vsetq_lane_u32(0x80000000, vdupq_n_u32(0), 3);
         
         for( ; n*4 <= N; )
         {
