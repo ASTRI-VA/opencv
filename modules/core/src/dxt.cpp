@@ -534,11 +534,16 @@ template<> struct DFT_VecR4<float>
                 y01 = vaddq_f32(t0, t1);
                 y23 = vsubq_f32(t0, t1);
                 
-                vst1_u64((uint64_t *)&v0[0], (uint64x1_t)vget_low_f32(y01));
-                vst1_u64((uint64_t *)&v0[nx], (uint64x1_t)vget_high_f32(y01));
-                vst1_u64((uint64_t *)&v1[0], (uint64x1_t)vget_low_f32(y23));
-                vst1_u64((uint64_t *)&v1[nx], (uint64x1_t)vget_high_f32(y23));
+                //vst1_u64((uint64_t *)&v0[0], (uint64x1_t)vget_low_f32(y01));
+                //vst1_u64((uint64_t *)&v0[nx], (uint64x1_t)vget_high_f32(y01));
+                //vst1_u64((uint64_t *)&v1[0], (uint64x1_t)vget_low_f32(y23));
+                //vst1_u64((uint64_t *)&v1[nx], (uint64x1_t)vget_high_f32(y23));
                 
+				vst1_f32((float32_t*)&v0[0], vget_low_f32(y01));
+				vst1_f32((float32_t*)&v0[nx], vget_high_f32(y01));
+				vst1_f32((float32_t*)&v1[0], vget_low_f32(y23));
+				vst1_f32((float32_t*)&v1[nx], vget_high_f32(y23));
+				
                 // printf("i=%d loop v0[0].re=%f im=%f, v0[nx].re=%f im=%f, v1[0].re=%f im=%f, v1[nx].re=%f im=%f nx=%d\n", i, v0[0].re, v0[0].im, v0[nx].re, v0[nx].im, v1[0].re, v1[0].im, v1[nx].re, v1[nx].im, nx);
                 
                 for( j = 1, dw = dw0; j < nx; j++, dw += dw0 )
@@ -610,8 +615,13 @@ template<> struct DFT_VecR4<float>
                     x02 = vsetq_lane_f32(vgetq_lane_f32(x02, 1) + vgetq_lane_f32(vtmp, 1), x02, 1);
                     x02 = vsetq_lane_f32(vgetq_lane_f32(x02, 0) - vgetq_lane_f32(vtmp, 0), x02, 0);
                     
-                    x02 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[0])), vget_high_f32(x02));
+                    //x02 = vcombine_f32((float32x2_t)vld1_u64((const uint64_t *)(&v0[0])), vget_high_f32(x02));
                     
+					high =  vget_high_f32(x02);
+                    low = vld1_f32((const float32_t*)&v0[0]);
+                    x02 = vcombine_f32(low, high);
+					
+					
                     y01 = vaddq_f32(x02, x13);
                     y23 = vsubq_f32(x02, x13);
                     
@@ -626,11 +636,15 @@ template<> struct DFT_VecR4<float>
                     y01 = vaddq_f32(t0, t1);
                     y23 = vsubq_f32(t0, t1);
                     
-                    vst1_u64((uint64_t *)&v0[0], (uint64x1_t)vget_low_f32(y01));
-                    vst1_u64((uint64_t *)&v0[nx], (uint64x1_t)vget_high_f32(y01));
-                    vst1_u64((uint64_t *)&v1[0], (uint64x1_t)vget_low_f32(y23));
-                    vst1_u64((uint64_t *)&v1[nx], (uint64x1_t)vget_high_f32(y23));
-                    
+                    //vst1_u64((uint64_t *)&v0[0], (uint64x1_t)vget_low_f32(y01));
+                    //vst1_u64((uint64_t *)&v0[nx], (uint64x1_t)vget_high_f32(y01));
+                    //vst1_u64((uint64_t *)&v1[0], (uint64x1_t)vget_low_f32(y23));
+                    //vst1_u64((uint64_t *)&v1[nx], (uint64x1_t)vget_high_f32(y23));
+					
+                    vst1_f32((float32_t*)&v0[0], vget_low_f32(y01));
+					vst1_f32((float32_t*)&v0[nx], vget_high_f32(y01));
+					vst1_f32((float32_t*)&v1[0], vget_low_f32(y23));
+					vst1_f32((float32_t*)&v1[nx], vget_high_f32(y23));
                     // printf("j=%d i=%d, loop v0[0].re=%f im=%f, v0[nx].re=%f im=%f, v1[0].re=%f im=%f, v1[nx].re=%f im=%f nx=%d\n", j, i, v0[0].re, v0[0].im, v0[nx].re, v0[nx].im, v1[0].re, v1[0].im, v1[nx].re, v1[nx].im, nx);
                     
                 }
