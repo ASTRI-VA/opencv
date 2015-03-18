@@ -1,5 +1,5 @@
 cd ..
-mkdir build/osx
+mkdir -p build/osx
 cd build/osx
 
 cmake -G "Unix Makefiles" -C ../../ASTRI/BuildCacheOSX.cmake ./../..
