@@ -63,6 +63,10 @@ if(OPENCV_CAN_BREAK_BINARY_COMPATIBILITY)
   add_definitions(-DOPENCV_CAN_BREAK_BINARY_COMPATIBILITY)
 endif()
 
+if(BUILD_TINY_GPU_MODULE)
+  add_definitions(-DOPENCV_TINY_GPU_MODULE)
+endif()
+
 if(CMAKE_COMPILER_IS_GNUCXX)
   # High level of warnings.
   add_extra_compiler_option(-W)
@@ -91,6 +95,8 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     add_extra_compiler_option(-Wno-narrowing)
     add_extra_compiler_option(-Wno-delete-non-virtual-dtor)
     add_extra_compiler_option(-Wno-unnamed-type-template-args)
+    add_extra_compiler_option(-Wno-array-bounds)
+    add_extra_compiler_option(-Wno-aggressive-loop-optimizations)
   endif()
   add_extra_compiler_option(-fdiagnostics-show-option)
 
@@ -255,6 +261,11 @@ if(MSVC)
   if(OPENCV_WARNINGS_ARE_ERRORS)
     set(OPENCV_EXTRA_FLAGS "${OPENCV_EXTRA_FLAGS} /WX")
   endif()
+endif()
+
+if(MSVC12 AND NOT CMAKE_GENERATOR MATCHES "Visual Studio")
+  set(OPENCV_EXTRA_C_FLAGS "${OPENCV_EXTRA_C_FLAGS} /FS")
+  set(OPENCV_EXTRA_CXX_FLAGS "${OPENCV_EXTRA_CXX_FLAGS} /FS")
 endif()
 
 # Extra link libs if the user selects building static libs:

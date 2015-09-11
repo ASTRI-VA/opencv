@@ -52,6 +52,11 @@ if(POLICY CMP0026)
   cmake_policy(SET CMP0026 OLD)
 endif()
 
+if (POLICY CMP0042)
+  # silence cmake 3.0+ warnings about MACOSX_RPATH
+  cmake_policy(SET CMP0042 OLD)
+endif()
+
 # must go before the project command
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
 if(DEFINED CMAKE_BUILD_TYPE AND CMAKE_VERSION VERSION_GREATER "2.8")
@@ -189,6 +194,7 @@ OCV_OPTION(BUILD_WITH_STATIC_CRT    "Enables use of staticaly linked CRT for sta
 OCV_OPTION(BUILD_FAT_JAVA_LIB       "Create fat java wrapper containing the whole OpenCV library" ON IF NOT BUILD_SHARED_LIBS AND CMAKE_COMPILER_IS_GNUCXX )
 OCV_OPTION(BUILD_ANDROID_SERVICE    "Build OpenCV Manager for Google Play" OFF IF ANDROID AND ANDROID_SOURCE_TREE )
 OCV_OPTION(BUILD_ANDROID_PACKAGE    "Build platform-specific package for Google Play" OFF IF ANDROID )
+OCV_OPTION(BUILD_TINY_GPU_MODULE    "Build tiny gpu module with limited image format support" OFF )
 
 # 3rd party libs
 OCV_OPTION(BUILD_ZLIB               "Build zlib from source"             WIN32 OR APPLE )
@@ -890,6 +896,7 @@ if(DEFINED WITH_FFMPEG)
   status("      format:"       HAVE_FFMPEG_FORMAT  THEN "YES (ver ${ALIASOF_libavformat_VERSION})" ELSE NO)
   status("      util:"         HAVE_FFMPEG_UTIL    THEN "YES (ver ${ALIASOF_libavutil_VERSION})"   ELSE NO)
   status("      swscale:"      HAVE_FFMPEG_SWSCALE THEN "YES (ver ${ALIASOF_libswscale_VERSION})"  ELSE NO)
+  status("      resample:"     HAVE_FFMPEG_RESAMPLE THEN "YES (ver ${ALIASOF_libavresample_VERSION})"  ELSE NO)
   status("      gentoo-style:" HAVE_GENTOO_FFMPEG  THEN YES                                        ELSE NO)
 endif(DEFINED WITH_FFMPEG)
 
@@ -998,6 +1005,7 @@ if(HAVE_CUDA)
   status("    NVIDIA GPU arch:"      ${OPENCV_CUDA_ARCH_BIN})
   status("    NVIDIA PTX archs:"     ${OPENCV_CUDA_ARCH_PTX})
   status("    Use fast math:"        CUDA_FAST_MATH THEN YES ELSE NO)
+  status("    Tiny gpu module:"      BUILD_TINY_GPU_MODULE THEN YES ELSE NO)
 endif()
 
 if(HAVE_OPENCL)
