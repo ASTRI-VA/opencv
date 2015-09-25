@@ -3896,7 +3896,9 @@ void cv::warpPerspective( InputArray _src, OutputArray _dst, InputArray _M0,
 */
     Range range(0, dst.rows);
     warpPerspectiveInvoker invoker(src, dst, M, interpolation, borderType, borderValue);
-    parallel_for_(range, invoker, dst.total()/(double)(1<<16));
+    //parallel_for_(range, invoker, dst.total()/(double)(1<<16));
+    
+    invoker(range);
 }
 
 
