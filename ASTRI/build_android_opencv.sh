@@ -7,6 +7,13 @@ echo "Please set it to point to your NDK location"
 exit
 fi
 
+#check if ANDROID_SDK is defined
+if [ -z "$ANDROID_SDK" ]; then
+echo "ANDROID_SDK environment variable not defined!"
+echo "Please set it to point to your SDK location"
+exit
+fi
+
 cd ..
 mkdir -p build/android_arm
 cd build/android_arm

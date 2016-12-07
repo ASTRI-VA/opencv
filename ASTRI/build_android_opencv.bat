@@ -8,6 +8,15 @@ IF "%ANDROID_NDK%" == "" (
 	echo Found ANDROID_NDK
 )
 
+IF "%ANDROID_SDK%" == "" (
+	echo ANDROID_SDK environment variable not defined!
+	echo Please set it to point to your SDK location
+	exit /b
+) else (
+	echo Found ANDROID_SDK
+)
+
+
 WHERE ant
 IF %ERRORLEVEL% NEQ 0 (
     ECHO ant is required and was not found!
