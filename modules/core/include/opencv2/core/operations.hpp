@@ -46,14 +46,14 @@
 #ifndef SKIP_INCLUDES
   #include <string.h>
   #include <limits.h>
+  #include <stddef.h>
 #endif // SKIP_INCLUDES
-
 
 #ifdef __cplusplus
 
 /////// exchange-add operation for atomic operations on reference counters ///////
-#if defined __INTEL_COMPILER && !(defined WIN32 || defined _WIN32)   // atomic increment on the linux version of the Intel(tm) compiler
-  #define CV_XADD(addr,delta) _InterlockedExchangeAdd(const_cast<void*>(reinterpret_cast<volatile void*>(addr)), delta)
+#ifdef CV_XADD
+  // allow to use user-defined macro
 #elif defined __GNUC__
 
   #if defined __clang__ && __clang_major__ >= 3 && !defined __ANDROID__ && !defined __EMSCRIPTEN__  && !defined(__CUDACC__)
@@ -66,7 +66,7 @@
 
     #if !(defined WIN32 || defined _WIN32) && (defined __i486__ || defined __i586__ || \
         defined __i686__ || defined __MMX__ || defined __SSE__  || defined __ppc__) || \
-        (defined __GNUC__ && defined _STLPORT_MAJOR) || \
+        defined _STLPORT_MAJOR || defined _LIBCPP_VERSION || \
         defined __EMSCRIPTEN__
 
       #define CV_XADD __sync_fetch_and_add
@@ -2558,10 +2558,10 @@ template<typename _Tp, size_t fixed_size> inline void AutoBuffer<_Tp, fixed_size
     if(_size <= size)
         return;
     deallocate();
+    size = _size;
     if(_size > fixed_size)
     {
         ptr = cv::allocate<_Tp>(_size);
-        size = _size;
     }
 }
 

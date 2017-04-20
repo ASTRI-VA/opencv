@@ -40,6 +40,9 @@
 //
 //M*/
 
+#define HAVE_FFMPEG_SWSCALE
+#define HAVE_GENTOO_FFMPEG
+
 #include "cap_ffmpeg_api.hpp"
 #include <assert.h>
 #include <algorithm>
@@ -1482,6 +1485,10 @@ static AVStream *icv_add_video_stream_FFMPEG(AVFormatContext *oc,
     }
 #endif
 
+#if LIBAVCODEC_BUILD >= CALC_FFMPEG_VERSION(52, 42, 0)
+    st->avg_frame_rate = (AVRational){frame_rate, frame_rate_base};
+#endif
+
     return st;
 }
 
@@ -2287,7 +2294,8 @@ bool OutputMediaStream_FFMPEG::open(const char* fileName, int width, int height,
     #if LIBAVFORMAT_BUILD < CALC_FFMPEG_VERSION(53, 2, 0)
         av_write_header(oc_);
     #else
-        avformat_write_header(oc_, NULL);
+        if (avformat_write_header(oc_, NULL) != 0)
+            return false;
     #endif
 
     return true;

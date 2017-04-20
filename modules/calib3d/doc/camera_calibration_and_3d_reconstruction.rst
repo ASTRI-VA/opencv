@@ -62,6 +62,11 @@ to the following (when
     v = f_y*y' + c_y
     \end{array}
 
+The following figure illustrates the pinhole camera model.
+
+.. image:: pics/pinhole_camera_model.png
+    :align: center
+
 Real lenses usually have some distortion, mostly
 radial distortion and slight tangential distortion. So, the above model
 is extended as:
@@ -78,7 +83,14 @@ is extended as:
 :math:`k_6` are radial distortion coefficients.
 :math:`p_1` and
 :math:`p_2` are tangential distortion coefficients.
-Higher-order coefficients are not considered in OpenCV. In the functions below the coefficients are passed or returned as
+Higher-order coefficients are not considered in OpenCV.
+
+The next figure shows two common types of radial distortion: barrel distortion (typically :math:`k_1 > 0` and pincushion distortion (typically :math:`k_1 < 0`).
+
+.. image:: pics/distortion_examples.png
+    :align: center
+
+In the functions below the coefficients are passed or returned as
 
 .. math::
 

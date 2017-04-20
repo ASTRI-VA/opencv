@@ -1,3 +1,10 @@
+include(CheckFunctionExists)
+include(CheckIncludeFile)
+
+if(UNIX)
+  find_package(PkgConfig)
+endif()
+
 # Search packages for host system instead of packages for target system
 # in case of cross compilation thess macro should be defined by toolchain file
 if(NOT COMMAND find_host_package)
@@ -10,6 +17,47 @@ if(NOT COMMAND find_host_program)
     find_program(${ARGN})
   endmacro()
 endif()
+
+if(NOT COMMAND cmake_parse_arguments)
+  include(CMakeParseArguments OPTIONAL) # CMake 2.8.3+
+endif()
+
+# Debugging function
+function(ocv_cmake_dump_vars)
+  set(VARS "")
+  get_cmake_property(_variableNames VARIABLES)
+  if(COMMAND cmake_parse_arguments222)
+    cmake_parse_arguments(DUMP "" "TOFILE" "" ${ARGN})
+    set(regex "${DUMP_UNPARSED_ARGUMENTS}")
+  else()
+    set(regex "${ARGV0}")
+    if(ARGV1 STREQUAL "TOFILE")
+      set(DUMP_TOFILE "${ARGV2}")
+    endif()
+  endif()
+  string(TOLOWER "${regex}" regex_lower)
+  foreach(_variableName ${_variableNames})
+    string(TOLOWER "${_variableName}" _variableName_lower)
+    if(_variableName MATCHES "${regex}" OR _variableName_lower MATCHES "${regex_lower}")
+      set(VARS "${VARS}${_variableName}=${${_variableName}}\n")
+    endif()
+  endforeach()
+  if(DUMP_TOFILE)
+    file(WRITE ${CMAKE_BINARY_DIR}/${DUMP_TOFILE} "${VARS}")
+  else()
+    message(AUTHOR_WARNING "${VARS}")
+  endif()
+endfunction()
+
+function(ocv_cmake_eval var_name)
+  if(DEFINED ${var_name})
+    file(WRITE "${CMAKE_BINARY_DIR}/CMakeCommand-${var_name}.cmake" ${${var_name}})
+    include("${CMAKE_BINARY_DIR}/CMakeCommand-${var_name}.cmake")
+  endif()
+  if(";${ARGN};" MATCHES ";ONCE;")
+    unset(${var_name} CACHE)
+  endif()
+endfunction()
 
 # assert macro
 # Note: it doesn't support lists in arguments
@@ -41,6 +89,9 @@ function(ocv_include_directories)
     get_filename_component(__abs_dir "${dir}" ABSOLUTE)
     if("${__abs_dir}" MATCHES "^${OpenCV_SOURCE_DIR}" OR "${__abs_dir}" MATCHES "^${OpenCV_BINARY_DIR}")
       list(APPEND __add_before "${dir}")
+    elseif(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS "6.0" AND
+           dir MATCHES "/usr/include$")
+      # workaround for GCC 6.x bug
     else()
       include_directories(AFTER SYSTEM "${dir}")
     endif()
@@ -66,7 +117,7 @@ set(OCV_COMPILER_FAIL_REGEX
     "[Uu]nknown option"                         # HP
     "[Ww]arning: [Oo]ption"                     # SunPro
     "command option .* is not recognized"       # XL
-    "not supported in this configuration; ignored"       # AIX
+    "not supported in this configuration, ignored"       # AIX (';' is replaced with ',')
     "File with unknown suffix passed to linker" # PGI
     "WARNING: unknown flag:"                    # Open64
   )
@@ -105,12 +156,25 @@ MACRO(ocv_check_compiler_flag LANG FLAG RESULT)
         COMPILE_DEFINITIONS "${FLAG}"
         OUTPUT_VARIABLE OUTPUT)
 
-      FOREACH(_regex ${OCV_COMPILER_FAIL_REGEX})
-        IF("${OUTPUT}" MATCHES "${_regex}")
-          SET(${RESULT} 0)
-          break()
-        ENDIF()
-      ENDFOREACH()
+      if(${RESULT})
+        string(REPLACE ";" "," OUTPUT_LINES "${OUTPUT}")
+        string(REPLACE "\n" ";" OUTPUT_LINES "${OUTPUT_LINES}")
+        foreach(_regex ${OCV_COMPILER_FAIL_REGEX})
+          if(NOT ${RESULT})
+            break()
+          endif()
+          foreach(_line ${OUTPUT_LINES})
+            if("${_line}" MATCHES "${_regex}")
+              file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
+                  "Build output check failed:\n"
+                  "    Regex: '${_regex}'\n"
+                  "    Output line: '${_line}'\n")
+              set(${RESULT} 0)
+              break()
+            endif()
+          endforeach()
+        endforeach()
+      endif()
 
       IF(${RESULT})
         SET(${RESULT} 1 CACHE INTERNAL "Test ${RESULT}")
@@ -118,6 +182,13 @@ MACRO(ocv_check_compiler_flag LANG FLAG RESULT)
       ELSE(${RESULT})
         MESSAGE(STATUS "Performing Test ${RESULT} - Failed")
         SET(${RESULT} "" CACHE INTERNAL "Test ${RESULT}")
+        file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
+            "Compilation failed:\n"
+            "    source file: '${_fname}'\n"
+            "    check option: '${FLAG}'\n"
+            "===== BUILD LOG =====\n"
+            "${OUTPUT}\n"
+            "===== END =====\n\n")
       ENDIF(${RESULT})
     else()
       SET(${RESULT} 0)
@@ -225,6 +296,44 @@ macro(OCV_OPTION variable description value)
   endif()
   unset(__condition)
   unset(__value)
+endmacro()
+
+# Usage: ocv_append_build_options(HIGHGUI FFMPEG)
+macro(ocv_append_build_options var_prefix pkg_prefix)
+  foreach(suffix INCLUDE_DIRS LIBRARIES LIBRARY_DIRS)
+    if(${pkg_prefix}_${suffix})
+      list(APPEND ${var_prefix}_${suffix} ${${pkg_prefix}_${suffix}})
+      list(REMOVE_DUPLICATES ${var_prefix}_${suffix})
+    endif()
+  endforeach()
+endmacro()
+
+# Usage is similar to CMake 'pkg_check_modules' command
+# It additionally controls HAVE_${define} and ${define}_${modname}_FOUND variables
+macro(ocv_check_modules define)
+  unset(HAVE_${define})
+  foreach(m ${ARGN})
+    if (m MATCHES "(.*[^><])(>=|=|<=)(.*)")
+      set(__modname "${CMAKE_MATCH_1}")
+    else()
+      set(__modname "${m}")
+    endif()
+    unset(${define}_${__modname}_FOUND)
+  endforeach()
+  pkg_check_modules(${define} ${ARGN})
+  if(${define}_FOUND)
+    set(HAVE_${define} 1)
+  endif()
+  foreach(m ${ARGN})
+    if (m MATCHES "(.*[^><])(>=|=|<=)(.*)")
+      set(__modname "${CMAKE_MATCH_1}")
+    else()
+      set(__modname "${m}")
+    endif()
+    if(NOT DEFINED ${define}_${__modname}_FOUND AND ${define}_FOUND)
+      set(${define}_${__modname}_FOUND 1)
+    endif()
+  endforeach()
 endmacro()
 
 
@@ -498,8 +607,11 @@ function(ocv_install_target)
     set(${__package}_TARGETS "${${__package}_TARGETS}" CACHE INTERNAL "List of ${__package} targets")
   endif()
 
-  if(INSTALL_CREATE_DISTRIB)
-    if(MSVC AND NOT BUILD_SHARED_LIBS)
+  if(MSVS)
+    if(NOT INSTALL_IGNORE_PDB AND
+        (INSTALL_PDB OR
+          (INSTALL_CREATE_DISTRIB AND NOT BUILD_SHARED_LIBS)
+        ))
       set(__target "${ARGV0}")
 
       set(isArchive 0)
@@ -522,16 +634,22 @@ function(ocv_install_target)
 
 #      message(STATUS "Process ${__target} dst=${__dst}...")
       if(DEFINED __dst)
-        get_target_property(fname ${__target} LOCATION_DEBUG)
-        if(fname MATCHES "\\.lib$")
-          string(REGEX REPLACE "\\.lib$" ".pdb" fname "${fname}")
-          install(FILES ${fname} DESTINATION ${__dst} CONFIGURATIONS Debug)
-        endif()
+        # If CMake version is >=3.1.0 or <2.8.12.
+        if(NOT CMAKE_VERSION VERSION_LESS 3.1.0 OR CMAKE_VERSION VERSION_LESS 2.8.12)
+          get_target_property(fname ${__target} LOCATION_DEBUG)
+          if(fname MATCHES "\\.lib$")
+            string(REGEX REPLACE "\\.lib$" ".pdb" fname "${fname}")
+            install(FILES "${fname}" DESTINATION "${__dst}" CONFIGURATIONS Debug OPTIONAL)
+          endif()
 
-        get_target_property(fname ${__target} LOCATION_RELEASE)
-        if(fname MATCHES "\\.lib$")
-          string(REGEX REPLACE "\\.lib$" ".pdb" fname "${fname}")
-          install(FILES ${fname} DESTINATION ${__dst} CONFIGURATIONS Release)
+          get_target_property(fname ${__target} LOCATION_RELEASE)
+          if(fname MATCHES "\\.lib$")
+            string(REGEX REPLACE "\\.lib$" ".pdb" fname "${fname}")
+            install(FILES "${fname}" DESTINATION "${__dst}" CONFIGURATIONS Release OPTIONAL)
+          endif()
+        else()
+          # CMake 2.8.12 broke PDB support for STATIC libraries from MSVS, fix was introduced in CMake 3.1.0.
+          message(WARNING "PDB's are not supported from this version of CMake, use CMake version later then 3.1.0 or before 2.8.12.")
         endif()
       endif()
     endif()

@@ -98,15 +98,15 @@ if(HAVE_CUDA)
     set(CPACK_DEB_LIBS_PACKAGE_DEPENDS "cuda-core-libs-${cuda_version_suffix}, cuda-extra-libs-${cuda_version_suffix}")
     set(CPACK_DEB_DEV_PACKAGE_DEPENDS "cuda-headers-${cuda_version_suffix}")
   else()
-    set(CPACK_DEB_LIBS_PACKAGE_DEPENDS "cuda-cudart-${cuda_version_suffix}, cuda-npp-${cuda_version_suffix}")
-    set(CPACK_DEB_DEV_PACKAGE_DEPENDS "cuda-cudart-dev-${cuda_version_suffix}, cuda-npp-dev-${cuda_version_suffix}")
+    set(CPACK_DEB_LIBS_PACKAGE_DEPENDS "cuda-cudart-${cuda_version_suffix} | libcudart${CUDA_VERSION}, cuda-npp-${cuda_version_suffix} | libnppc${CUDA_VERSION}, cuda-npp-${cuda_version_suffix} | libnppi${CUDA_VERSION}, cuda-npp-${cuda_version_suffix} | libnpps${CUDA_VERSION}")
+    set(CPACK_DEB_DEV_PACKAGE_DEPENDS "cuda-cudart-dev-${cuda_version_suffix} | nvidia-cuda-dev (>=${CUDA_VERSION}), cuda-npp-dev-${cuda_version_suffix} | nvidia-cuda-dev (>=${CUDA_VERSION})")
     if(HAVE_CUFFT)
-      set(CPACK_DEB_LIBS_PACKAGE_DEPENDS "${CPACK_DEB_LIBS_PACKAGE_DEPENDS}, cuda-cufft-${cuda_version_suffix}")
-      set(CPACK_DEB_DEV_PACKAGE_DEPENDS "${CPACK_DEB_DEV_PACKAGE_DEPENDS}, cuda-cufft-dev-${cuda_version_suffix}")
+      set(CPACK_DEB_LIBS_PACKAGE_DEPENDS "${CPACK_DEB_LIBS_PACKAGE_DEPENDS}, cuda-cufft-${cuda_version_suffix} | libcufft${CUDA_VERSION}")
+      set(CPACK_DEB_DEV_PACKAGE_DEPENDS "${CPACK_DEB_DEV_PACKAGE_DEPENDS}, cuda-cufft-dev-${cuda_version_suffix} | nvidia-cuda-dev (>=${CUDA_VERSION})")
     endif()
     if(HAVE_HAVE_CUBLAS)
-      set(CPACK_DEB_LIBS_PACKAGE_DEPENDS "${CPACK_DEB_LIBS_PACKAGE_DEPENDS}, cuda-cublas-${cuda_version_suffix}")
-      set(CPACK_DEB_DEV_PACKAGE_DEPENDS "${CPACK_DEB_DEV_PACKAGE_DEPENDS}, cuda-cublas-dev-${cuda_version_suffix}")
+      set(CPACK_DEB_LIBS_PACKAGE_DEPENDS "${CPACK_DEB_LIBS_PACKAGE_DEPENDS}, cuda-cublas-${cuda_version_suffix} |  libcublas${CUDA_VERSION}")
+      set(CPACK_DEB_DEV_PACKAGE_DEPENDS "${CPACK_DEB_DEV_PACKAGE_DEPENDS}, cuda-cublas-dev-${cuda_version_suffix} | nvidia-cuda-dev (>=${CUDA_VERSION})")
     endif()
   endif()
 endif()
@@ -122,10 +122,17 @@ endif()
 set(STD_OPENCV_LIBS opencv-data)
 set(STD_OPENCV_DEV libopencv-dev)
 
+set(ABI_VERSION_SUFFIX "")
+if(CMAKE_COMPILER_IS_GNUCXX)
+  if(${CMAKE_OPENCV_GCC_VERSION_MAJOR} EQUAL 5)
+     set(ABI_VERSION_SUFFIX "v5")
+  endif()
+endif()
+
 foreach(module calib3d contrib core features2d flann gpu highgui imgproc legacy
                ml objdetect ocl photo stitching superres ts video videostab)
   if(HAVE_opencv_${module})
-    list(APPEND STD_OPENCV_LIBS "libopencv-${module}2.4")
+    list(APPEND STD_OPENCV_LIBS "libopencv-${module}2.4${ABI_VERSION_SUFFIX}")
     list(APPEND STD_OPENCV_DEV "libopencv-${module}-dev")
   endif()
 endforeach()
@@ -259,6 +266,11 @@ ocv_get_lintian_version(LINTIAN_VERSION)
 set(LIBS_LINTIAN_OVERRIDES "binary-or-shlib-defines-rpath" # usr/lib/libopencv_core.so.2.4.12
                            "package-name-doesnt-match-sonames") # libopencv-calib3d2.4 libopencv-contrib2.4
 
+if(AARCH64 AND CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
+   # GCC 4.8 has a bug which sometimes causes it to produce non-PIC aarch64 code.
+   list(APPEND LIBS_LINTIAN_OVERRIDES "shlib-with-non-pic-code")
+endif()
+
 if(HAVE_opencv_python)
     set(PYTHON_LINTIAN_OVERRIDES "binary-or-shlib-defines-rpath" # usr/lib/python2.7/dist-packages/cv2.so
                                  "missing-dependency-on-numpy-abi")
@@ -318,7 +330,7 @@ if(CPACK_GENERATOR STREQUAL "DEB")
     set(CHANGELOG_PACKAGE_NAME "${CPACK_DEBIAN_COMPONENT_${comp_upcase}_NAME}")
     configure_file("${CMAKE_SOURCE_DIR}/cmake/templates/changelog.Debian.in" "${DEBIAN_CHANGELOG_OUT_FILE}" @ONLY)
 
-    execute_process(COMMAND "${GZIP_TOOL}" "-cf9" "${DEBIAN_CHANGELOG_OUT_FILE}"
+    execute_process(COMMAND "${GZIP_TOOL}" "-ncf9" "${DEBIAN_CHANGELOG_OUT_FILE}"
                     OUTPUT_FILE "${DEBIAN_CHANGELOG_OUT_FILE_GZ}"
                     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 
@@ -328,9 +340,9 @@ if(CPACK_GENERATOR STREQUAL "DEB")
 
     set(CHANGELOG_OUT_FILE "${CMAKE_BINARY_DIR}/deb-packages-gen/${comp}/changelog")
     set(CHANGELOG_OUT_FILE_GZ "${CMAKE_BINARY_DIR}/deb-packages-gen/${comp}/changelog.gz")
-    file(WRITE ${CHANGELOG_OUT_FILE} "Upstream changelog stub. See https://github.com/Itseez/opencv/wiki/ChangeLog")
+    file(WRITE ${CHANGELOG_OUT_FILE} "Upstream changelog stub. See https://github.com/opencv/opencv/wiki/ChangeLog")
 
-    execute_process(COMMAND "${GZIP_TOOL}" "-cf9" "${CHANGELOG_OUT_FILE}"
+    execute_process(COMMAND "${GZIP_TOOL}" "-ncf9" "${CHANGELOG_OUT_FILE}"
                     OUTPUT_FILE "${CHANGELOG_OUT_FILE_GZ}"
                     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 

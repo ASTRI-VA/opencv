@@ -73,6 +73,8 @@ endif()
 
 include(cmake/OpenCVUtils.cmake)
 
+ocv_cmake_eval(DEBUG_PRE ONCE)
+
 ocv_clear_vars(OpenCVModules_TARGETS)
 
 # ----------------------------------------------------------------------------
@@ -137,7 +139,7 @@ endif()
 # Optional 3rd party components
 # ===================================================
 OCV_OPTION(WITH_1394           "Include IEEE1394 support"                    ON   IF (NOT ANDROID AND NOT IOS) )
-OCV_OPTION(WITH_AVFOUNDATION   "Use AVFoundation for Video I/O"              ON   IF IOS)
+OCV_OPTION(WITH_AVFOUNDATION   "Use AVFoundation for Video I/O (iOS/Mac)"    ON   IF APPLE)
 OCV_OPTION(WITH_CARBON         "Use Carbon for UI instead of Cocoa"          OFF  IF APPLE )
 OCV_OPTION(WITH_CUDA           "Include NVidia Cuda Runtime support"         ON   IF (CMAKE_VERSION VERSION_GREATER "2.8" AND NOT IOS) )
 OCV_OPTION(WITH_VTK            "Include VTK library support (and build opencv_viz module eiher)"             OFF IF (NOT ANDROID AND NOT IOS AND NOT CMAKE_CROSSCOMPILING) )
@@ -162,7 +164,8 @@ OCV_OPTION(WITH_PVAPI          "Include Prosilica GigE support"              ON 
 OCV_OPTION(WITH_GIGEAPI        "Include Smartek GigE support"                ON   IF (NOT ANDROID AND NOT IOS) )
 OCV_OPTION(WITH_QT             "Build with Qt Backend support"               OFF  IF (NOT ANDROID AND NOT IOS) )
 OCV_OPTION(WITH_WIN32UI        "Build with Win32 UI Backend support"         ON   IF WIN32 )
-OCV_OPTION(WITH_QUICKTIME      "Use QuickTime for Video I/O insted of QTKit" OFF  IF APPLE )
+OCV_OPTION(WITH_QUICKTIME      "Use QuickTime for Video I/O"                 OFF  IF APPLE )
+OCV_OPTION(WITH_QTKIT          "Use QTKit Video I/O backend"                 OFF  IF APPLE )
 OCV_OPTION(WITH_TBB            "Include Intel TBB support"                   OFF  IF (NOT IOS) )
 OCV_OPTION(WITH_OPENMP         "Include OpenMP support"                      OFF)
 OCV_OPTION(WITH_CSTRIPES       "Include C= support"                          OFF  IF WIN32 )
@@ -216,6 +219,7 @@ OCV_OPTION(INSTALL_TESTS            "Install accuracy and performance test binar
 
 # OpenCV build options
 # ===================================================
+OCV_OPTION(ENABLE_CCACHE              "Use ccache"                                               (UNIX AND NOT IOS AND (CMAKE_GENERATOR MATCHES "Makefile" OR CMAKE_GENERATOR MATCHES "Ninja")) )
 OCV_OPTION(ENABLE_DYNAMIC_CUDA        "Enabled dynamic CUDA linkage"                             ON   IF ANDROID )
 OCV_OPTION(ENABLE_PRECOMPILED_HEADERS "Use precompiled headers"                                  ON   IF (NOT IOS) )
 OCV_OPTION(ENABLE_SOLUTION_FOLDERS    "Solution folder in Visual Studio or in other IDEs"        (MSVC_IDE OR CMAKE_GENERATOR MATCHES Xcode) IF (CMAKE_VERSION VERSION_GREATER "2.8.0") )
@@ -274,12 +278,14 @@ if (ANDROID)
   endif()
 endif()
 
-if(ANDROID OR WIN32)
-  set(OPENCV_DOC_INSTALL_PATH doc)
-elseif(INSTALL_TO_MANGLED_PATHS)
-  set(OPENCV_DOC_INSTALL_PATH share/OpenCV-${OPENCV_VERSION}/doc)
-else()
-  set(OPENCV_DOC_INSTALL_PATH share/OpenCV/doc)
+if(NOT DEFINED OPENCV_DOC_INSTALL_PATH)
+  if(ANDROID OR WIN32)
+    set(OPENCV_DOC_INSTALL_PATH doc)
+  elseif(INSTALL_TO_MANGLED_PATHS)
+    set(OPENCV_DOC_INSTALL_PATH share/OpenCV-${OPENCV_VERSION}/doc)
+  else()
+    set(OPENCV_DOC_INSTALL_PATH share/OpenCV/doc)
+  endif()
 endif()
 
 if(WIN32)
@@ -450,10 +456,6 @@ endif(WIN32 AND NOT MINGW)
 #       CHECK FOR SYSTEM LIBRARIES, OPTIONS, ETC..
 # ----------------------------------------------------------------------------
 if(UNIX)
-  include(cmake/OpenCVFindPkgConfig.cmake OPTIONAL)
-  include(CheckFunctionExists)
-  include(CheckIncludeFile)
-
   if(NOT APPLE)
     CHECK_INCLUDE_FILE(pthread.h HAVE_LIBPTHREAD)
     if(ANDROID)
@@ -737,6 +739,7 @@ else()
   status("    Linker flags (Release):" ${CMAKE_SHARED_LINKER_FLAGS} ${CMAKE_SHARED_LINKER_FLAGS_RELEASE})
   status("    Linker flags (Debug):"   ${CMAKE_SHARED_LINKER_FLAGS} ${CMAKE_SHARED_LINKER_FLAGS_DEBUG})
 endif()
+status("    ccache:"                  CMAKE_COMPILER_IS_CCACHE THEN YES ELSE NO)
 status("    Precompiled headers:"     PCHSupport_FOUND AND ENABLE_PRECOMPILED_HEADERS THEN YES ELSE NO)
 
 # ========================== OpenCV modules ==========================
@@ -886,23 +889,18 @@ if(ANDROID)
   endif()
 endif()
 
-if(DEFINED WITH_AVFOUNDATION)
-  status("    AVFoundation:"   WITH_AVFOUNDATION   THEN YES                                        ELSE NO)
-endif(DEFINED WITH_AVFOUNDATION)
-
-if(DEFINED WITH_FFMPEG)
+if(DEFINED WITH_FFMPEG OR HAVE_FFMPEG)
   if(WIN32)
     status("    FFMPEG:"       WITH_FFMPEG         THEN "YES (prebuilt binaries)"                  ELSE NO)
   else()
     status("    FFMPEG:"       HAVE_FFMPEG         THEN YES ELSE NO)
   endif()
-  status("      codec:"        HAVE_FFMPEG_CODEC   THEN "YES (ver ${ALIASOF_libavcodec_VERSION})"  ELSE NO)
-  status("      format:"       HAVE_FFMPEG_FORMAT  THEN "YES (ver ${ALIASOF_libavformat_VERSION})" ELSE NO)
-  status("      util:"         HAVE_FFMPEG_UTIL    THEN "YES (ver ${ALIASOF_libavutil_VERSION})"   ELSE NO)
-  status("      swscale:"      HAVE_FFMPEG_SWSCALE THEN "YES (ver ${ALIASOF_libswscale_VERSION})"  ELSE NO)
-  status("      resample:"     HAVE_FFMPEG_RESAMPLE THEN "YES (ver ${ALIASOF_libavresample_VERSION})"  ELSE NO)
-  status("      gentoo-style:" HAVE_GENTOO_FFMPEG  THEN YES                                        ELSE NO)
-endif(DEFINED WITH_FFMPEG)
+  status("      avcodec:"      FFMPEG_libavcodec_FOUND    THEN "YES (ver ${FFMPEG_libavcodec_VERSION})"    ELSE NO)
+  status("      avformat:"     FFMPEG_libavformat_FOUND   THEN "YES (ver ${FFMPEG_libavformat_VERSION})"   ELSE NO)
+  status("      avutil:"       FFMPEG_libavutil_FOUND     THEN "YES (ver ${FFMPEG_libavutil_VERSION})"     ELSE NO)
+  status("      swscale:"      FFMPEG_libswscale_FOUND    THEN "YES (ver ${FFMPEG_libswscale_VERSION})"    ELSE NO)
+  status("      avresample:"   FFMPEG_libavresample_FOUND THEN "YES (ver ${FFMPEG_libavresample_VERSION})" ELSE NO)
+endif()
 
 if(DEFINED WITH_GSTREAMER)
   status("    GStreamer:"      HAVE_GSTREAMER      THEN ""                                         ELSE NO)
@@ -930,10 +928,15 @@ if(DEFINED WITH_GIGEAPI)
   status("    GigEVisionSDK:"  HAVE_GIGE_API       THEN YES                                        ELSE NO)
 endif(DEFINED WITH_GIGEAPI)
 
-if(DEFINED WITH_QUICKTIME)
+if(DEFINED APPLE)
+  status("    AVFoundation:"   HAVE_AVFOUNDATION   THEN YES                                        ELSE NO)
+  if(WITH_QUICKTIME OR HAVE_QUICKTIME)
   status("    QuickTime:"      HAVE_QUICKTIME      THEN YES                                        ELSE NO)
-  status("    QTKit:"          HAVE_QTKIT          THEN YES                                        ELSE NO)
-endif(DEFINED WITH_QUICKTIME)
+  endif()
+  if(WITH_QTKIT OR HAVE_QTKIT)
+  status("    QTKit:"          HAVE_QTKIT          THEN "YES (deprecated)"                         ELSE NO)
+  endif()
+endif(DEFINED APPLE)
 
 if(DEFINED WITH_UNICAP)
   status("    UniCap:"         HAVE_UNICAP         THEN "YES (ver ${ALIASOF_libunicap_VERSION})"   ELSE NO)
@@ -1110,3 +1113,7 @@ endif()
 # ----------------------------------------------------------------------------
 
 include(cmake/OpenCVPackaging.cmake)
+
+# This should be the last command
+ocv_cmake_dump_vars("" TOFILE "CMakeVars.txt")
+ocv_cmake_eval(DEBUG_POST ONCE)
